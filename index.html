@@ -43,6 +43,7 @@
             padding: 40px;
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
             border: 1px solid rgba(255, 255, 255, 0.03);
+            position: relative; /* Essential to anchor the floating button safely */
         }
 
         .sm-header {
@@ -118,6 +119,7 @@
             color: var(--text-muted);
             font-size: 1.05rem;
             border: 1px dashed var(--panel-border);
+            margin-bottom: 20px;
         }
 
         .sm-spinner {
@@ -229,54 +231,43 @@
         }
         .sm-seat-card.OCCUPIED .sm-card-status { color: var(--color-occupied); }
 
+        /* Interactive Sync Button Base Layout */
+        .sm-refresh-btn {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+        .sm-refresh-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .sm-refresh-btn svg {
+            transition: transform 0.5s ease;
+        }
+        .sm-refresh-btn.spinning svg {
+            animation: sm-spin 0.8s linear infinite;
+        }
+
         @media (max-width: 600px) {
-            .sm-dashboard-wrapper { padding: 20px; }
+            .sm-dashboard-wrapper { padding: 20px; padding-top: 70px; }
+            .sm-refresh-btn { top: 15px; right: 15px; }
             .sm-counter-bar { grid-template-columns: 1fr; gap: 12px; }
             .sm-seat-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
             .sm-title { font-size: 1.8rem; }
         }
-
-
-
-
-        /* Interactive Sync Button Base Layout */
-    .sm-refresh-btn {
-        position: absolute;
-        top: 25px;
-        right: 25px;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        color: #ffffff;
-        padding: 8px 14px;
-        border-radius: 8px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        transition: all 0.2s ease;
-        z-index: 10;
-    }
-    .sm-refresh-btn:hover {
-        background: rgba(255, 255, 255, 0.12);
-        border-color: rgba(255, 255, 255, 0.2);
-    }
-    .sm-refresh-btn svg {
-        transition: transform 0.5s ease;
-    }
-    /* Active spin macro triggered via JS during fetch */
-    .sm-refresh-btn.spinning svg {
-        animation: sm-spin 0.8s linear infinite;
-    }
-    
-    /* Relative positioning wrapper requirement context */
-    .sm-dashboard-wrapper {
-        position: relative; /* Essential to anchor the floating button safely */
-    }
-
-
-    
     </style>
 </head>
 <body>
@@ -287,15 +278,11 @@
         <span>Refresh Status</span>
     </button>
 
-
-<div class="sm-dashboard-wrapper">
-    <!-- Title Layout -->
     <div class="sm-header">
         <h2 class="sm-title">SmartStudy Live Seat Tracker</h2>
         <p class="sm-subtitle">Real-time room architectural availability and space statistics</p>
     </div>
 
-    <!-- Live Analytic Counters -->
     <div class="sm-counter-bar">
         <div class="sm-counter-card cnt-total">
             <span class="sm-counter-label">Total Seats</span>
@@ -311,12 +298,10 @@
         </div>
     </div>
 
-    <!-- Active Loading Container -->
     <div id="sm-status-message" class="sm-status-box">
         <span class="sm-spinner"></span> Synchronizing current seat matrices from server...
     </div>
 
-    <!-- Multi-Floor Architecture Output Viewports -->
     <div id="sm-floor-A" class="sm-floor-container" style="display: none;">
         <div class="sm-floor-header">
             <span class="sm-floor-icon">🏢</span>
@@ -384,7 +369,6 @@
         };
 
         async function loadCabinData() {
-            // 1. UI Feedback State
             if (refreshBtn) refreshBtn.classList.add('spinning');
             if (msgBox) {
                 msgBox.style.display = 'block';
@@ -406,11 +390,9 @@
                 if (!response.ok) throw new Error(`HTTP Error Status: ${response.status}`);
                 const data = await response.json();
 
-                // Clear old DOM grid nodes completely before rewriting 
                 Object.values(targetGrids).forEach(g => { if(g) g.innerHTML = ''; });
                 Object.values(sectionContainers).forEach(s => { if(s) s.style.display = 'none'; });
 
-                // Aligns alpha-numeric indices layout sorting orders
                 data.sort((a, b) => a.UniqueSeatName.localeCompare(b.UniqueSeatName, undefined, {numeric: true, sensitivity: 'base'}));
 
                 let countTotal = data.length;
@@ -422,10 +404,16 @@
                     if (seat.SeatStatus === "AVAILABLE") countAvailable++;
                     if (seat.SeatStatus === "OCCUPIED") countOccupied++;
 
+                    // Extract numerical values safely by breaking parts around the underscores
+                    // For "Seat_A_005", components become ["Seat", "A", "005"]
+                    const parts = seat.UniqueSeatName.split('_');
+                    const seatNumber = parts.length > 2 ? parts[2] : seat.UniqueSeatName;
+                    const cleanDisplayName = `Seat ${seatNumber}`;
+
                     const card = document.createElement('div');
                     card.className = `sm-seat-card ${seat.SeatStatus}`;
                     card.innerHTML = `
-                        <div class="sm-card-name">${seat.UniqueSeatName.replace("Seat_", "")}</div>
+                        <div class="sm-card-name">${cleanDisplayName}</div>
                         <div class="sm-card-status">${seat.SeatStatus}</div>
                     `;
 
@@ -445,12 +433,10 @@
                     }
                 });
 
-                // Write counts metrics values
                 document.getElementById('sm-cnt-total').innerText = countTotal;
                 document.getElementById('sm-cnt-available').innerText = countAvailable;
                 document.getElementById('sm-cnt-occupied').innerText = countOccupied;
 
-                // Cleanup components display tracking viewports
                 if (msgBox) msgBox.style.display = 'none';
                 Object.keys(activeSections).forEach(key => {
                     if (activeSections[key] && sectionContainers[key]) {
@@ -461,23 +447,20 @@
             } catch (err) {
                 if (msgBox) {
                     msgBox.className = "sm-status-box error";
-                    msgBox.innerHTML = `❌ Synchronize error: Unable to map database update sequences.`;
+                    msgBox.innerHTML = `⚠️ Synchronize error: Unable to map database update sequences.`;
                     msgBox.style.borderColor = "#ef476f";
                     msgBox.style.color = "#ef476f";
                 }
                 console.error(err);
             } finally {
-                // Remove spinning animation when request completes
                 if (refreshBtn) refreshBtn.classList.remove('spinning');
             }
         }
 
-        // Attach listener event tracking
         if (refreshBtn) {
             refreshBtn.addEventListener('click', loadCabinData);
         }
 
-        // Initial launch configuration
         loadCabinData();
     })();
 </script>
